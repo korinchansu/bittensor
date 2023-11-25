@@ -247,6 +247,61 @@ class dendrite(torch.nn.Module):
         deserialize: bool = True,
         run_async: bool = True,
         streaming: bool = False,
+    ) -> List[Union[AsyncGenerator[Any], bittensor.Synapse, bittensor.StreamingSynapse]]:
+        """
+        Asynchronously sends requests to one or multiple Axons and collates their responses.
+        """
+
+        # If a single axon is provided, wrap it in a list for uniform processing
+        if not isinstance(axons, list):
+            axons = [axons]
+
+        # Determine if we're streaming
+        is_streaming = issubclass(synapse.__class__, bittensor.StreamingSynapse) or streaming
+
+        # Define a helper function for querying a single axon
+        async def query_single_axon(target_axon):
+            if is_streaming:
+                return await self.call_stream(
+                    target_axon=target_axon,
+                    synapse=synapse.copy(),
+                    timeout=timeout,
+                    deserialize=deserialize,
+                )
+            else:
+                return await self.call(
+                    target_axon=target_axon,
+                    synapse=synapse.copy(),
+                    timeout=timeout,
+                    deserialize=deserialize,
+                )
+
+        # Query all axons either concurrently or sequentially
+        if run_async:
+            # responses = await asyncio.gather(
+            #     *(query_single_axon(axon) for axon in axons)
+            # )
+            tasks = [asyncio.create_task(query_single_axon(axon)) for axon in axons]
+            responses = await asyncio.gather(*tasks)
+        else:
+            responses = []
+            for axon in axons:
+                response = await query_single_axon(axon)
+                responses.append(response)
+
+        return responses
+
+    async def forward_old(
+        self,
+        axons: Union[
+            List[Union[bittensor.AxonInfo, bittensor.axon]],
+            Union[bittensor.AxonInfo, bittensor.axon],
+        ],
+        synapse: bittensor.Synapse = bittensor.Synapse(),
+        timeout: float = 12,
+        deserialize: bool = True,
+        run_async: bool = True,
+        streaming: bool = False,
     ) -> List[Union[AsyncGenerator[Any], bittenst.Synapse, bittensor.StreamingSynapse]]:
         """
         Asynchronously sends requests to one or multiple Axons and collates their responses.

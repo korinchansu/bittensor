@@ -56,33 +56,32 @@ class FastAPIThreadedServer(uvicorn.Server):
     def install_signal_handlers(self):
         pass
 
-    @contextlib.contextmanager
     def run_in_thread(self):
-        thread = threading.Thread(target=self.run, daemon=True)
-        thread.start()
-        try:
-            while not self.started:
-                time.sleep(1e-3)
-            yield
-        finally:
-            self.should_exit = True
-            thread.join()
+        # Create a new event loop for the thread, ensuring proper async behavior.
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        self.loop = loop
 
-    def _wrapper_run(self):
-        with self.run_in_thread():
-            while not self.should_exit:
-                time.sleep(1e-3)
+        # Start the server within the new event loop.
+        loop.run_until_complete(self.serve())
+        loop.close()
 
     def start(self):
         if not self.is_running:
             self.should_exit = False
-            thread = threading.Thread(target=self._wrapper_run, daemon=True)
-            thread.start()
             self.is_running = True
+            # Run the server in a separate thread with its own event loop.
+            self.server_thread = threading.Thread(target=self.run_in_thread, daemon=True)
+            self.server_thread.start()
 
     def stop(self):
         if self.is_running:
             self.should_exit = True
+            # Gracefully shut down the server.
+            self.loop.create_task(self.shutdown())
+            # Wait for the server thread to finish.
+            self.server_thread.join()
+            self.is_running = False
 
 
 class axon:
