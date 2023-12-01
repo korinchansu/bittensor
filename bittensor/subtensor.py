@@ -81,6 +81,7 @@ from .utils.registration import POWSolution
 logger = logger.opt(colors=True)
 
 
+
 class ParamWithTypes(TypedDict):
     name: str  # Name of the parameter.
     type: str  # ScaleType string of the parameter.
@@ -329,6 +330,27 @@ class subtensor:
         if self.config.subtensor._mock:
             config.subtensor._mock = True
             return bittensor.subtensor_mock.MockSubtensor()
+
+        # Attempt to connect to the chain.
+        # if local is unreachable, start a local chain.
+        # - check if cargo/rust installed
+        # - if not, display message to install rust:
+        #   - if user agrees, run the script in the `./scripts/install_subtensor_deps.sh`
+        # - if yes, run the script in the `./scripts/start_local_subtensor.sh`
+        # if local and reachable, connect to the local chain.
+        if self.network == "local":
+            port = self.chain_endpoint.split(":")[-1]
+            if subprocess.run(["nc", "-vz", "localhost", port]).returncode == 1:
+                # Check for rust and cargo installed on the system.
+                if (
+                    subprocess.run(["which", "rustup"]).returncode == 1
+                    or subprocess.run(["which", "cargo"]).returncode == 1
+                ):
+                    logger.warning(
+                        "Rust and Cargo are not installed on the system. Please install rust and cargo to run a local subtensor chain."
+                        f"Please see documentation found at {RUST_INSTALL_LINK}."
+                        
+                    )
 
         # Set up params.
         self.substrate = SubstrateInterface(
