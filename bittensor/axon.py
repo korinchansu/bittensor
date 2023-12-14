@@ -1052,6 +1052,15 @@ class AxonMiddleware(BaseHTTPMiddleware):
                 status_code=404, headers=synapse.to_headers(), content={}
             )
 
+        except IndexError:
+            bittensor.logging.error(f"Malformed request URL: {request.url.path}")
+            response = JSONResponse(
+                status_code=400, headers=request.headers, content={}
+            )
+            synapse: bittensor.Synapse = bittensor.Synapse()
+            synapse.axon.status_code = "400"
+            synapse.axon.status_message = f"Malformed request URL: {request.url.path}"
+
         # Start of catching all exceptions, updating the status message, and processing time.
         except Exception as e:
             # Log the exception for debugging purposes.
