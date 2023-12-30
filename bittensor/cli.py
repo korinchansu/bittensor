@@ -91,6 +91,7 @@ COMMANDS = {
             "overview": OverviewCommand,
             "transfer": TransferCommand,
             "inspect": InspectCommand,
+            "history": WalletHistoryCommand,
             "balance": WalletBalanceCommand,
             "create": WalletCreateCommand,
             "new_hotkey": NewHotkeyCommand,

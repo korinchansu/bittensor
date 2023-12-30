@@ -827,3 +827,86 @@ class WalletBalanceCommand:
                 _,
                 config.subtensor.chain_endpoint,
             ) = bittensor.subtensor.determine_chain_endpoint_and_network(str(network))
+
+
+class WalletHistoryCommand:
+    """
+    Executes the 'history' command to check the transactions of the wallet using TaoStats platform.
+    This command crawls taostats using selenium and provides a detailed view of the wallet's
+    transactions, including fields: extrinsic, to, from, amount and time.
+
+    Usage:
+    The command lists the history of all wallets in the user's configuration directory, showing the wallet name with transactions data.
+
+    Optional arguments:
+    None. The command uses the wallet configuration to get history data.
+
+    Example usage:
+    >>> btcli wallet history
+
+    Note:
+    This command crawls the TaoStats platform at `taostats.io` and relies on consistent HTML markup.
+    This command is essential for users to monitor their financial history on the Bittensor network.
+    It helps in keeping track of transactions and ensuring the wallet's transactions succeed.
+    """
+
+    @staticmethod
+    def run(cli):
+        """Check the history of the wallet."""
+        wallet_names = os.listdir(os.path.expanduser(cli.config.wallet.path))
+        coldkeys = _get_coldkey_ss58_addresses_for_path(cli.config.wallet.path)
+
+        for name, coldkey in zip(wallet_names, coldkeys):
+            table = Table(show_footer=False)
+            table.title = "[white]Wallet Extrinsic Direction From To Amount Time"
+            for col_name in ["Wallet Name", "Extrinsic", "From", "Direction", "To"]:
+                table.add_column(
+                    f"[white]{col_name}",
+                    header_style="overline white",
+                    footer_style="overline white",
+                    style="rgb(50,163,219)",
+                    no_wrap=True,
+                )
+            for col_name in ["Amount", "Time"]:
+                table.add_column(
+                    f"[white]{col_name}",
+                    header_style="overline white",
+                    footer_style="overline white",
+                    justify="right",
+                    style="rgb(50,163,219)",
+                    no_wrap=True,
+                )
+
+            transfers = bittensor.utils.history.get_address_history_from_taostats(
+                coldkey
+            )
+            for extrinsic, from_key, direction, to_key, amount, time_since in zip(
+                transfers["extrinsic"],
+                transfers["from"],
+                transfers["direction"],
+                transfers["to"],
+                transfers["amount"],
+                transfers["time"],
+            ):
+                table.add_row(
+                    name, extrinsic, from_key, direction, to_key, amount, time_since
+                )
+
+            table.show_footer = True
+            table.box = None
+            table.pad_edge = False
+            table.width = None
+            bittensor.__console__.print(table)
+
+    @staticmethod
+    def add_args(parser: argparse.ArgumentParser):
+        history_parser = parser.add_parser(
+            "history", help="""Checks the history of the wallet."""
+        )
+        bittensor.wallet.add_args(history_parser)
+
+    @staticmethod
+    def check_config(config: "bittensor.config"):
+        if not config.is_set("wallet.path") and not config.no_prompt:
+            path = Prompt.ask("Enter wallets path", default=defaults.wallet.path)
+            config.wallet.path = str(path)

@@ -25,6 +25,7 @@ import torch
 import scalecodec
 from substrateinterface.utils import ss58 as ss58
 
+from .history import *
 from .wallet_utils import *
 from .registration import create_pow as create_pow
 
